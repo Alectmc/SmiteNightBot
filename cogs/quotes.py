@@ -17,8 +17,8 @@ class Quotes(commands.Cog):
 
         # If a quotes.json file exists, read in the quotes from the JSON file
         # and store them in the list.
-        if os.path.exists("quotes.json"):
-            with open("quotes.json") as f:
+        if os.path.exists("./data/quotes.json"):
+            with open("./data/quotes.json") as f:
                 self.quotes = json.load(f)
 
     # Adds the /addquote command. This command takes a quote and an author, gets the submitter's user ID, and saves the
@@ -39,7 +39,7 @@ class Quotes(commands.Cog):
 
         self.quotes.append(new_quote)
 
-        with open("quotes.json", "w") as f:
+        with open("./data/quotes.json", "w") as f:
             json.dump(self.quotes, f)
 
         await interaction.response.send_message(f"Quote added: {quote_text} - {author}", ephemeral=True)
