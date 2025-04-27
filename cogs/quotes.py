@@ -29,7 +29,7 @@ class Quotes(commands.Cog):
                            author="Who said it?")
     async def add_quote(self, interaction, quote_text:str, author:str):
         user_id = interaction.user.id
-        author = author.strip().lower().capitalize()  # Remove whitespace and make the name the proper capitalization.
+        author = author.strip()  # Remove whitespace.
 
         new_quote = {
             "submitter_id": user_id,
