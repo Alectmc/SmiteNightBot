@@ -7,10 +7,8 @@
 from discord import Intents, Message, Member, Game, app_commands, utils
 import discord.ext.commands as commands
 import dotenv
-import random
 from typing import Final
 import os
-import json
 
 # Load environment with token and store it in a constant.
 dotenv.load_dotenv()
