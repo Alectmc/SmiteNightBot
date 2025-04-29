@@ -4,7 +4,7 @@
 # Has functionality to handle and save quotes, send joke reminder, send server ping,
 #and welcome new users.
 
-from discord import Intents, Message, Member, Game, app_commands, utils
+from discord import Intents, Game
 import discord.ext.commands as commands
 import dotenv
 from typing import Final
