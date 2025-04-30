@@ -18,6 +18,7 @@ TOKEN: Final[str] = os.getenv("TOKEN")
 # We need these enabled to detect new users.
 intents = Intents.default()
 intents.members = True
+intents.message_content = True
 
 # Initialize the bot for slash commands.
 bot = commands.Bot(command_prefix='/', intents=intents)
@@ -38,6 +39,7 @@ async def on_ready():
     await bot.load_extension("cogs.utility")
     await bot.load_extension("cogs.quotes")
     await bot.load_extension("cogs.misc")
+    await bot.load_extension("cogs.wordle")
     print("COGS Loaded!")
 
     await bot.tree.sync()
