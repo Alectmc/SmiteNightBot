@@ -22,6 +22,7 @@ class Utility(commands.Cog):
                         "/ping: Replies with latency to server\n"
                         "/addquote: Adds a quote\n"
                         "/quote: displays a saved quote\n"
+                        "/wordle: Initiates a game of wordle (must be in the #wordle channel to start the game)\n"
                         "/grass: Reminds everyone to touch grass\n"
                         "/water: Reminds everyone to drink water\n")
         await interaction.response.send_message(help_message, ephemeral=True)
