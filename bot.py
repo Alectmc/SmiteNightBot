@@ -27,10 +27,7 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 # activity to "/help if ya need something".
 @bot.event
 async def on_ready():
-    print(f"Smite Night Bot is now online as {bot.user}")
-
-    # await bot.tree.sync()
-    # print("Commands synced!")
+    print(f"SmiteNightBot is now online as {bot.user}")
 
     activity = Game("/help if ya need something")
     await bot.change_presence(activity=activity)
