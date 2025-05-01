@@ -156,19 +156,26 @@ class Wordle(commands.Cog):
         for letter in game.answer:
             available_letters[letter] += 1
 
-        # For every letter in content, compare it to that of the answer and if the letter is in the approriate place,
-        # add a green square emoji to the response and decrement the count of that letter. Otherwise, if the letter
-        # is not in the right place but is found elsewhere in the answer, add a yellow square emoji indicating the
-        # letter is in the answer, just not here. Finally, if the letter is not in the answer at all, add a black
-        # square emoji to the response.
-        # NOTE: This current implementation has a bug that will need to be ironed out. The issue is best seen with
-        # an example: If the answer is "gates" and the user guesses "grass", the second to last "s" will be marked as
-        # a yellow emoji, and then the last "s" will be marked with a green emoji. This makes it seem as if there are
-        # 2 "s"'s in the answer, when there is only 1. This will be fixed in a future update very soon.
+        # This boolean list will be used for the first pass through the answer. A 0 at a position indicates an incorrect
+        # placement of a letter, and 1 indicates a correct placement.
+        correct_pos = [0] * 5
+
+        # For every letter in content, compare it to that of the answer and if the letter is in the appropriate place,
+        # update the value of correct_pos to reflect that the current letter is in the correct position, and decrement
+        # the count of this letter by 1.
         for i, letter in enumerate(content):
             if content[i] == game.answer[i]:
-                response += ":green_square: "
+                correct_pos[i] = 1
                 available_letters[letter] -= 1
+
+        # For every letter in content, first compare it to the correct_pos list element at the same position and if it
+        # is 1 (that is, the letter is in the appropriate place), to that of the answer and if the letter is in the
+        # appropriate place, add a green square emoji to the responser. Otherwise, if the letter is not in the right
+        # place but is found elsewhere in the answer, add a yellow square emoji indicating the letter is in the answer,
+        # just not here. Finally, if the letter is not in the answer at all, add a black square emoji to the response.
+        for i, letter in enumerate(content):
+            if correct_pos[i] == 1:
+                response += ":green_square: "
             elif content[i] in game.answer and available_letters[letter] > 0:
                 response += ":yellow_square: "
                 available_letters[letter] -= 1
