@@ -5,7 +5,7 @@
 ## Overview
 
 This is a lightweight Discord bot written in Python using the discord.py API wrapper, made for a server I am in with some friends.
-The main feature of the bot is to maintain a quote list, but functionality may be added as we continue to think of features we could use.
+The main feature of the bot is to maintain a quote list and run a working game of Wordle, but functionality may be added as we continue to think of features we could use.
 
 ## How To Run It
 
@@ -56,3 +56,7 @@ python bot.py
 If you receive an error that the "python" command is not found, try using "python3" instead. If you still receive an error, you may need to reinstall Python or ensure that it is in your system's PATH.
 
 And that's it! The bot should now be online in the server you added it to!
+
+## Credits
+
+The words list for the Wordle game are derived from the New York Times game of the same name, and are not owned by me. They are purely used for recreational and non-commercial purposes.
