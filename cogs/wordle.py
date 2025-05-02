@@ -2,7 +2,6 @@
 # File Name: wordle.py
 # Description: Creates the Wordle cog to handle the Wordle game! (Derived from the
 # NYT game of the same name)
-from sys import builtin_module_names
 
 import discord
 from discord import app_commands, channel
@@ -13,6 +12,7 @@ import os
 from collections import defaultdict
 import asyncio
 from time import time
+from configparser import ConfigParser
 
 # An instance of a wordle game. The instance will contain the answer of this round, the attempts which consists
 # of the guesser, the guess itself, and the bot's chat response, the start time, the number of attempts, and a timeout
@@ -27,27 +27,32 @@ class GameInstance:
 
 # The Wordle Cog itself which handles the main logic for the Wordle game and it's commands. Initialized with the bot,
 # the list of answers and valid words, the channel name of where wordle will run, the embedded message title, the
-# time limit duration of the game, and a dictionary which will house all running games by current channel ID
+# time limit duration of the game, and a dictionary which will house all running games by current channel ID.
+# There will also be a ConfigParser that will be responsible for parsing data from the config.ini file.
 class Wordle(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.config = ConfigParser()
+        self.config.read("./config.ini")
         self.words = []
         self.valid = []
-        self.CHANNEL_NAME = "wordle"
-        self.EMBED_NAME = "Wordle! (Beta)"
-        self.DURATION = 300
         self.games = {}
+        self.CHANNEL_NAME = self.config.get("Wordle", "CHANNEL_NAME", fallback="wordle")
+        self.EMBED_NAME = self.config.get("Wordle", "EMBED_NAME", fallback="Wordle! (Beta)")
+        self.DURATION = int(self.config.get("Wordle", "DURATION", fallback=300))
+        self.ANSWER_FILE = self.config.get("Wordle", "ANSWER_FILE", fallback=None)
+        self.VALID_FILE = self.config.get("Wordle", "VALID_FILE", fallback=None)
 
         # Check to see if there is an answers and a valid file for the word list. If so, populate the lists with their
         # content. Otherwise, use a simple list of sample words.
-        if os.path.exists('./data/answers.txt') and os.path.exists('./data/valid.txt'):
-            with open("./data/answers.txt") as f:
-                for word in f:
+        if os.path.exists(self.ANSWER_FILE) and os.path.exists(self.VALID_FILE):
+            with open(self.ANSWER_FILE) as file:
+                for word in file:
                     self.words.append(word.strip())
                     self.valid.append(word.strip())
 
-                with open("./data/valid.txt") as f:
-                    for word in f:
+                with open(self.VALID_FILE) as file:
+                    for word in file:
                         self.valid.append(word.strip())
         else:
             self.words = self.valid = ["chair", "table", "plant", "apple", "grape", "brick", "story", "shelf", "piano", "train"]

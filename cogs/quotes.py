@@ -8,18 +8,23 @@ from discord.ext import commands
 import os
 import json
 import random
+from configparser import ConfigParser
 
-#Create a Quotes class to be used as a Cog.
+#Create a Quotes class to be used as a Cog. There will also be a ConfigParser that will be responsible for parsing data
+# from the config.ini file.
 class Quotes(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.config = ConfigParser()
+        self.config.read("./config.ini")
         self.quotes = [] # Create an empty list for the list of quotes.
+        self.QUOTES_FILE = self.config.get("Quotes", "QUOTES_FILE", fallback=None)
 
         # If a quotes.json file exists, read in the quotes from the JSON file
-        # and store them in the list.
-        if os.path.exists("./data/quotes.json"):
-            with open("./data/quotes.json") as f:
-                self.quotes = json.load(f)
+        # and store them in the list. Otherwise, the quotes list will remain empty.
+        if os.path.exists(self.QUOTES_FILE):
+            with open(self.QUOTES_FILE) as file:
+                self.quotes = json.load(file)
 
     # Adds the /addquote command. This command takes a quote and an author, gets the submitter's user ID, and saves the
     # submitter ID (user_id), the author of the quote, and the quote text and saves it as a dictionary entry. This is then
@@ -39,8 +44,9 @@ class Quotes(commands.Cog):
 
         self.quotes.append(new_quote)
 
-        with open("./data/quotes.json", "w") as f:
-            json.dump(self.quotes, f)
+        if os.path.exists(self.QUOTES_FILE):
+            with open(self.QUOTES_FILE, "w") as file:
+                json.dump(self.quotes, file)
 
         await interaction.response.send_message(f"Quote added: {quote_text} - {author}", ephemeral=True)
 
@@ -56,7 +62,7 @@ class Quotes(commands.Cog):
             return
 
         if author:
-            authored_quotes = [q for q in self.quotes if q.author == author.strip().lower().capitalize()]
+            authored_quotes = [q for q in self.quotes if q["author"] == author.strip().lower().capitalize()]
 
             if not authored_quotes:
                 await interaction.response.send_message(f"No quotes found for {author}.", ephemeral=True)
