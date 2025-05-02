@@ -5,36 +5,38 @@
 from sys import builtin_module_names
 
 import discord
-from discord import app_commands
+from discord import app_commands, channel
 from discord.ext import commands
 import re
 import random
 import os
 from collections import defaultdict
+import asyncio
+from time import time
 
 # An instance of a wordle game. The instance will contain the answer of this round, the attempts which consists
-# of the guesser, the guess itself, and the bot's chat response, the number of attempts, and the maximum amount of
-# attempts.
+# of the guesser, the guess itself, and the bot's chat response, the start time, the number of attempts, and a timeout
+# task placeholder variable for the handle_timeout coroutine.
 class GameInstance:
     def __init__(self, answer):
         self.answer = answer.lower()
         self.attempts = []
+        self.start_time = time()
         self.num_attempts = 0
-        self.MAX_ATTEMPTS = 6
+        self.timeout_task = None
 
 # The Wordle Cog itself which handles the main logic for the Wordle game and it's commands. Initialized with the bot,
-# the list of answers and valid words, the channel name of where wordle will run, the embeded message title, a
-# dictionary which will house all running games by current channel ID, and a dictionary for the emotes for
-# which attempt the game is on.
+# the list of answers and valid words, the channel name of where wordle will run, the embedded message title, the
+# time limit duration of the game, and a dictionary which will house all running games by current channel ID
 class Wordle(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.words = []
         self.valid = []
-        self.CHANNEL_NAME = "wordle"
+        self.CHANNEL_NAME = "wordle_test"
         self.EMBED_NAME = "Wordle! (Beta)"
+        self.DURATION = 300
         self.games = {}
-        self.emotes = {1: ":one:", 2: ":two:", 3: ":three:", 4: ":four:", 5: ":five:", 6: ":six:"}
 
         # Check to see if there is an answers and a valid file for the word list. If so, populate the lists with their
         # content. Otherwise, use a simple list of sample words.
@@ -75,12 +77,15 @@ class Wordle(commands.Cog):
             return
 
         # If a game is not running, select a random word and create a new instance of the Wordle game, and store it
-        # in the games dictionary with the key being the current channel ID.
+        # in the games dictionary with the key being the current channel ID as well as create a new asynchronous task
+        # to handle timeouts (the maximum time duration allowed for the game is up) and store it in the game instance.
         answer = random.choice(self.words)
-        self.games[current_channel] = GameInstance(answer)
+        game = self.games[current_channel] = GameInstance(answer)
+        game.timeout_task = asyncio.create_task(self.handle_timeout(current_channel))
 
         # Send the message to the user that the game has begun!
-        embed = discord.Embed(title=self.EMBED_NAME, description="A game of Wordle has been initiated! You have 6 tries to guess the word, type your guess in chat! (Must be a 5 letter word)", colour=discord.Colour.green())
+        # embed = discord.Embed(title=self.EMBED_NAME, description="A game of Wordle has been initiated! You have 6 tries to guess the word, type your guess in chat! (Must be a 5 letter word)", colour=discord.Colour.green())
+        embed = discord.Embed(title=self.EMBED_NAME, description="A game of Wordle has been initiated! You have 10 minutes to guess the word, type your guess in chat! (Must be a 5 letter word)", colour=discord.Colour.green())
         await interaction.response.send_message(embed=embed)
 
     # Event listener for messages. Will trigger for every message that is sent, but the only logic that will apply is
@@ -146,9 +151,6 @@ class Wordle(commands.Cog):
         for guesser, _, past_response in game.attempts:
             history += f"{past_response} - Guessed by {guesser}\n"
 
-        # Add the current emoji corresponding to the attempt number to the front of the new response.
-        response += f"{self.emotes[game.num_attempts]} "
-
         # Create a dictionary for every available letter in the answer, and increment each one's count by 1. This is
         # how we will determine how many times a letter has been used in the current guess. The key is the letter and
         # the value is the amount of letters in the answer.
@@ -188,9 +190,15 @@ class Wordle(commands.Cog):
         # Add the guesser, the guess, and the response to the game's attempts list.
         game.attempts.append((message.author.mention, content, response))
 
+        # Get the amount of time elapsed to calculate the amount of time remaining, and always round the time up to the
+        # nearest minute. (For example, if there is 1 minute and 30 seconds remaining, round up to 2 whole minutes).
+        time_elapsed = time() - game.start_time
+        time_remaining = max(0, self.DURATION - time_elapsed)
+        time_remaining = int((time_remaining + 59) // 60)
+
         # Set the response to the history string (all past responses) and concatenate the new response to the end of
         # the history string, and then concatenate the guesser to the end of the message.
-        response = history + response + f" - Guessed by {message.author.mention}"
+        response = history + response + f" - Guessed by {message.author.mention}\n\n{time_remaining} minute{'s' if time_remaining != 1 else ''} remaining!"
 
         # Create the embedded message with the response and send it.
         embed = discord.Embed(title=self.EMBED_NAME, description=response, color=discord.Color.green())
@@ -199,19 +207,32 @@ class Wordle(commands.Cog):
         # If the guess is the answer, report that the guesser got the word and the number of attempts used, and delete
         # the game instance for the games dictionary, ending the game, and return.
         if content == game.answer:
-            embed = discord.Embed(title=self.EMBED_NAME, description=f'{message.author.mention} guessed the correct word "{game.answer}" in {game.num_attempts} tries! Well done!', color=discord.Color.green())
+            embed = discord.Embed(title=self.EMBED_NAME, description=f'{message.author.mention} guessed the correct word {game.answer.upper()} in {game.num_attempts} tries! Well done!', color=discord.Color.green())
             await message.channel.send(embed=embed)
+            game.timeout_task.cancel()
             del self.games[current_channel]
             return
 
-        # If the number of attempts meets or exceeds the maximum number of attempts, report that everyone is out of
-        # guesses and what the word was, delete the game instance from the games dictionary, ending the game, and
-        # return.
-        if game.num_attempts >= game.MAX_ATTEMPTS:
-            embed = discord.Embed(title=self.EMBED_NAME, description=f'Out of guesses! The correct word was "{game.answer}"! Better Luck Next Time!', color=discord.Color.red())
-            await message.channel.send(embed=embed)
-            del self.games[current_channel]
-            return
+    # Handles ending the game if the time has run out.
+    async def handle_timeout(self, channel_id):
+        try:
+            # Sleep for the duration of the game.
+            await asyncio.sleep(self.DURATION)
+
+            # If the coroutine is woken back up, time is up for the game. If the game is still running and the channel
+            # still exists (it should), then send an embedded message that the time is up with the correct answer and
+            # delete the game from the games dictionary.
+            game = self.games.get(channel_id)
+            if game:
+                channel = self.bot.get_channel(channel_id)
+                if channel:
+                    embed = discord.Embed(title=self.EMBED_NAME, description=f"Time's Up! The correct word was {game.answer.upper()}!", color=discord.Color.red())
+                    await channel.send(embed=embed)
+                    del self.games[channel_id]
+        # Catch the exception if the game ended due to the correct word being guessed within the time limit and ignore
+        # it.
+        except asyncio.CancelledError:
+            pass
 
 # Setups the Cog to be used by the bot.
 async def setup(bot):
