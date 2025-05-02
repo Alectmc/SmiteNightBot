@@ -33,7 +33,7 @@ class Wordle(commands.Cog):
         self.bot = bot
         self.words = []
         self.valid = []
-        self.CHANNEL_NAME = "wordle_test"
+        self.CHANNEL_NAME = "wordle"
         self.EMBED_NAME = "Wordle! (Beta)"
         self.DURATION = 300
         self.games = {}
