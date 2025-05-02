@@ -85,7 +85,7 @@ class Wordle(commands.Cog):
 
         # Send the message to the user that the game has begun!
         # embed = discord.Embed(title=self.EMBED_NAME, description="A game of Wordle has been initiated! You have 6 tries to guess the word, type your guess in chat! (Must be a 5 letter word)", colour=discord.Colour.green())
-        embed = discord.Embed(title=self.EMBED_NAME, description="A game of Wordle has been initiated! You have 10 minutes to guess the word, type your guess in chat! (Must be a 5 letter word)", colour=discord.Colour.green())
+        embed = discord.Embed(title=self.EMBED_NAME, description=f"A game of Wordle has been initiated! You have {self.DURATION // 60} minutes to guess the word, type your guess in chat! (Must be a 5 letter word)", colour=discord.Colour.green())
         await interaction.response.send_message(embed=embed)
 
     # Event listener for messages. Will trigger for every message that is sent, but the only logic that will apply is
