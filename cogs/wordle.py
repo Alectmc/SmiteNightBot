@@ -23,6 +23,7 @@ class GameInstance:
         self.attempts = []
         self.start_time = time()
         self.num_attempts = 0
+        self.points_available = defaultdict(int)
         self.timeout_task = None
 
 # The Wordle Cog itself which handles the main logic for the Wordle game and it's commands. Initialized with the bot,
@@ -37,6 +38,7 @@ class Wordle(commands.Cog):
         self.words = []
         self.valid = []
         self.games = {}
+        self.leaderboard = defaultdict(int)
         self.CHANNEL_NAME = self.config.get("Wordle", "CHANNEL_NAME", fallback="wordle")
         self.EMBED_NAME = self.config.get("Wordle", "EMBED_NAME", fallback="Wordle! (Beta)")
         self.DURATION = int(self.config.get("Wordle", "DURATION", fallback=300))
@@ -85,8 +87,12 @@ class Wordle(commands.Cog):
         # in the games dictionary with the key being the current channel ID as well as create a new asynchronous task
         # to handle timeouts (the maximum time duration allowed for the game is up) and store it in the game instance.
         answer = random.choice(self.words)
+        print(answer) #Debuggin'
         game = self.games[current_channel] = GameInstance(answer)
         game.timeout_task = asyncio.create_task(self.handle_timeout(current_channel))
+
+        for letter in game.answer:
+            game.points_available[letter] += 2
 
         # Send the message to the user that the game has begun!
         # embed = discord.Embed(title=self.EMBED_NAME, description="A game of Wordle has been initiated! You have 6 tries to guess the word, type your guess in chat! (Must be a 5 letter word)", colour=discord.Colour.green())
@@ -167,6 +173,8 @@ class Wordle(commands.Cog):
         # placement of a letter, and 1 indicates a correct placement.
         correct_pos = [0] * 5
 
+        score = 0
+
         # For every letter in content, compare it to that of the answer and if the letter is in the appropriate place,
         # update the value of correct_pos to reflect that the current letter is in the correct position, and decrement
         # the count of this letter by 1.
@@ -183,9 +191,22 @@ class Wordle(commands.Cog):
         for i, letter in enumerate(content):
             if correct_pos[i] == 1:
                 response += ":green_square: "
+
+                if game.points_available[letter] >= 2:
+                    score += 2
+                    game.points_available[letter] -= 2
+                elif game.points_available[letter] >= 1:
+                    score += 1
+                    game.points_available[letter] -= 1
+
             elif content[i] in game.answer and available_letters[letter] > 0:
                 response += ":yellow_square: "
+
+                if game.points_available[letter] >= 1:
+                    score += 1
+                    game.points_available[letter] -= 1
                 available_letters[letter] -= 1
+
             else:
                 response += ":black_large_square: "
 
@@ -201,9 +222,11 @@ class Wordle(commands.Cog):
         time_remaining = max(0, self.DURATION - time_elapsed)
         time_remaining = int((time_remaining + 59) // 60)
 
+        self.leaderboard[message.author.mention] += score
+
         # Set the response to the history string (all past responses) and concatenate the new response to the end of
         # the history string, and then concatenate the guesser to the end of the message.
-        response = history + response + f" - Guessed by {message.author.mention}\n\n{time_remaining} minute{'s' if time_remaining != 1 else ''} remaining!"
+        response = history + response + f" - Guessed by {message.author.mention} (+{score})\n\n{time_remaining} minute{'s' if time_remaining != 1 else ''} remaining!"
 
         # Create the embedded message with the response and send it.
         embed = discord.Embed(title=self.EMBED_NAME, description=response, color=discord.Color.green())
@@ -212,11 +235,35 @@ class Wordle(commands.Cog):
         # If the guess is the answer, report that the guesser got the word and the number of attempts used, and delete
         # the game instance for the games dictionary, ending the game, and return.
         if content == game.answer:
-            embed = discord.Embed(title=self.EMBED_NAME, description=f'{message.author.mention} guessed the correct word {game.answer.upper()} in {game.num_attempts} tries! Well done!', color=discord.Color.green())
+            self.leaderboard[message.author.mention] += 4
+            embed = discord.Embed(title=self.EMBED_NAME, description=f'{message.author.mention} guessed the correct word {game.answer.upper()} in {game.num_attempts} tries and has been awarded 4 points! Well done!', color=discord.Color.green())
             await message.channel.send(embed=embed)
             game.timeout_task.cancel()
             del self.games[current_channel]
             return
+
+    # Handles displaying the leaderboard
+    @app_commands.command(name="leaderboard", description="Displays the current leaderboard for Wordle!")
+    async def leaderboard(self, interaction):
+        if interaction.channel.name != self.CHANNEL_NAME:
+            channel = discord.utils.get(interaction.guild.text_channels, name=self.CHANNEL_NAME)
+            if channel:
+                embed = discord.Embed(title=self.EMBED_NAME, description=f"Please use the {channel.mention} channel to display the leaderboard!", color=discord.Color.red())
+            else:
+                embed = discord.Embed(title=self.EMBED_NAME, description=f"#{self.CHANNEL_NAME} not found! Please ensure you have a #{self.CHANNEL_NAME} text channel setup to play and use the leaderboard!", color=discord.Color.red())
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+
+        response = ""
+        sorted_leaderboard = sorted(self.leaderboard.items(), key=lambda item: item[1], reverse=True)
+
+        for i, (user, score) in enumerate(sorted_leaderboard):
+            response += f"{i+1}. {user}: {score}\n"
+
+        response += "\nThe leaderboard resets every Sunday at 12PM Central Time!"
+
+        embed = discord.Embed(title=self.EMBED_NAME, description=response, color=discord.Color.green())
+        await interaction.response.send_message(embed=embed)
 
     # Handles ending the game if the time has run out.
     async def handle_timeout(self, channel_id):
