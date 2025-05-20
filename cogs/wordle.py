@@ -242,7 +242,7 @@ class Wordle(commands.Cog):
             del self.games[current_channel]
             return
 
-    # Handles displaying the leaderboard
+    # Handles displaying the leaderboard stats
     @app_commands.command(name="leaderboard", description="Displays the current leaderboard for Wordle!")
     async def leaderboard(self, interaction):
         if interaction.channel.name != self.CHANNEL_NAME:
